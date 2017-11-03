@@ -1,28 +1,45 @@
+#
+# This is the user-interface definition of a Shiny web application. You can
+# run the application by clicking 'Run App' above.
+#
+# Find out more about building applications with Shiny here:
+# 
+#    http://shiny.rstudio.com/
+#
+
+
+
+
+
 #ideas: navbar so we can have a separate page for uncommon disease plots and for p&i data
 library(shiny)
 library(dplyr)
+
+
 #read in disease and location name data
 disease_names <- read.table("disease_names.txt", header=T)
 disease_names <- droplevels(filter(disease_names, x!="P&I MORT"))
 infrequent <- read.table("inf_dis.txt", header=T)
 
 
-shinyUI(navbarPage("CDC Data Visualization",
-                   tabPanel("Disease Plots",
+
+
+shinyUI(navbarPage("Power Optimization Visualization",
+                   tabPanel("Line 1 Prediction",
                             
                             # Application title
-                            titlePanel("CDC Weekly Case Count"), 
+                            titlePanel("2017 Line 1 Sample data Prediction"), 
                             
                             #The shiny app is made up of two columns: the first column houses all of the user interface,
-                            #including disease name selection, location type, location name, and plot options.  
+                            #including commodity selection, location type, plot type, and plot options.  
                             column(4, wellPanel( 
-                              # A drop down menu to choose the disease name of interest.  
-                              # Reads in disease names from disease_names.txt.  Can choose which name to default to.  
-                              selectInput('disease_name', 'Disease Name', as.character(levels(disease_names$x)), selected="Salmonellosis"),
+                              # A drop down menu to choose the commodity name of interest.  
+                              # Reads in commodity names from commodity_names.txt.  Can choose which name to default to.  
+                              selectInput('commodity_name', 'Commodity Name', as.character(levels(commodity_name$x)), selected="SYN"),
                               
                               # A drop down menu to choose location.  The menu will be populated based on which location type was chosen.
                               # The checkbox is defined in the server.R file
-                              dateRangeInput('years','Choose date range', start= "2015-01-01", end=Sys.Date(), 
+                              dateRangeInput('years','Choose date range', start= "2017-01-01", end=Sys.Date(), 
                                              min = "2008-01-01", max=Sys.Date() ),
                               
                               uiOutput("location"),
@@ -34,16 +51,17 @@ shinyUI(navbarPage("CDC Data Visualization",
                               # A row with two columns: one to choose the location type, and one to choose a plot type.
                               fluidRow(
                                 column(7, radioButtons("locty", "Location Type",
-                                                       c("State" = "state",
-                                                         "Single region" = "region",
-                                                         "All states within a region"="stregion",
-                                                         "All regions"="aregion",
-                                                         "Country" = "country"), selected="aregion")
+                                                       c("Pump Station" = "pump_station",
+                                                         "Single Segment" = "line_segment",
+                                                         "All pump stations within a segment"="line_segments",
+                                                         "All segments"="line_segments",
+                                                         "Line Total" = "line"), selected="line_segments")
                                 ),
                                 column(5, radioButtons("plotty", "Plot Type",
-                                                       c("Weekly data" = "week",
-                                                         "Weekly data by year" = "weeky",
-                                                         "Cumulative data by year" = "cumuy"), selected="week"))
+                                                       c("Daily data" = "day",
+                                                         "Weekly data" = "week",
+                                                         "Monthly data" = "month",
+                                                         ), selected="week"))
                               ),
                               
                               # A row with some plot options. uiOutput("frees") creates a checkbox for
@@ -62,64 +80,8 @@ shinyUI(navbarPage("CDC Data Visualization",
                             column(8, plotOutput('plot1'))
                    ),
                    
-                   tabPanel("Inf. Reported Diseases",
-                            titlePanel("CDC Weekly Case Count for Infrequently Reported Diseases"), 
-                            column(4, wellPanel( 
-                              # A drop down menu to choose the disease name of interest.  
-                              # Reads in disease names from disease_names.txt.  Can choose which name to default to.  
-                              selectInput('inf_name', 'Disease Name', as.character(levels(infrequent$x)), selected="Typhoid fever"), 
-                              dateRangeInput('yearsInf','Choose date range', start= "2015-01-01", end=Sys.Date(), 
-                                             min = "2014-01-01", max=Sys.Date() ),
-                              radioButtons("plottyI", "Plot Type",
-                                           c("Weekly data" = "week",
-                                             "Weekly data by year" = "weeky",
-                                             "Cumulative data by year" = "cumuy"), selected="week"),
-                              
-                              #A line break to make the interface clearer 
-                              br(),
-                              fluidRow(
-                                h5(strong('Plot Options')),
-                                checkboxInput('alert_lineI', 'Include alert thresholds (experimental)')
-                              ))
-                            ),
-                            
-                            column(8, plotOutput('plot2'))
-                   ),
                    
-                   tabPanel("CDC Pneumonia and Influenza Mortality",
-                            
-                            titlePanel("CDC Weekly Pneumonia and Influenza Mortality"),
-                            column(4, wellPanel( 
-                              # A row with two columns: one to choose the location type, and one to choose from a few display options.
-                              # uiOutput("frees") creates a checkbox for whether the y-axis scale should be the same for all plots
-                              # This checkbox only appears for certain location type selections, and is defined in the server.R file. 
-                              uiOutput("locationP"),
-                              
-                              fluidRow(
-                                dateRangeInput('yearsPI','Choose date range', start= "2015-01-01", end=Sys.Date(), 
-                                               min = "2008-01-01", max=Sys.Date() ),
-                                column(7,radioButtons("loctyP", "Location Type",
-                                                      c("City" = "city",
-                                                        "Single region" = "regionP",
-                                                        "All cities within a state" = "stateP",
-                                                        "All cities within a region"="ctregion",
-                                                        "All regions"="aregionP",
-                                                        "Total" = "totalP"), selected="aregionP")),
-                                column(5, radioButtons("plottyP", "Plot Type",
-                                                       c("Weekly data" = "week",
-                                                         "Weekly data by year" = "weeky",
-                                                         "Cumulative data by year" = "cumuy"), selected="week"))
-                              ),
-                              
-                              fluidRow(
-                                h5(strong('Plot Options')),
-                                checkboxInput('alert_lineP', 'Include alert thresholds (experimental)'),
-                                uiOutput("freesP")
-                              ))
-                            ),
-                            
-                            column(8, plotOutput('plot3'))
-                   ),
+                 
                    
                    tabPanel("More Information",   # Information about data collection.
                             "Data are updated weekly on Thursday at 20:00 CT.",
@@ -143,3 +105,7 @@ shinyUI(navbarPage("CDC Data Visualization",
                    
 )
 )
+
+
+
+

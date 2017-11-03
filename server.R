@@ -1,8 +1,19 @@
+#
+# This is the server logic of a Shiny web application. You can run the 
+# application by clicking 'Run App' above.
+#
+# Find out more about building applications with Shiny here:
+# 
+#    http://shiny.rstudio.com/
+#
+
+
 library(shiny)
 library(ggplot2)
 library(dplyr)
 library(scales)
 library(grid)
+
 ## Sometimes as different options are chosen, Shiny tries to create a plot without first reading in new user input, 
 ## which can cause ggplot to throw an error.  For that reason, there's a lot of code like if(is.null(input$locty)) return()
 ## This code checks to see if the correct input has been read yet, and if not, it prevents ggplot from trying to plot anything. 
@@ -29,21 +40,31 @@ infreq$date <- as.Date(infreq$date)
 datetrans <- read.table("week.csv", header=T, sep=",")
 
 
-shinyServer(function(input, output, session) {
 
+
+
+###########################################################
+
+
+
+
+
+
+shinyServer(function(input, output, session) {
+  
   # The first reactive element of the UI is a drop down menu which filters locations based on whether
-  # the user has selected states, regions, states in regions, or country
-  # if "all regions" is selected, no location choices are displayed
+  # the user has selected pump stations, line segments, pump stations in line segments, line
+  # if "all segment" is selected, no choices are displayed
   output$location <- renderUI({     
     if(is.null(input$locty))return()
-     switch(input$locty,
+    switch(input$locty,
            "state" =     return(selectInput('location_name', 'State Name',sort(filter(location_names, type=="state")$location))),
            "stregion" =  return(selectInput('location_name', 'Region Name', sort(filter(location_names, type=="region")$location))),
            "region" =  return(selectInput('location_name', 'Region Name', sort(filter(location_names, type=="region")$location))),
            "country" =  return(selectInput('location_name', 'Country Name',sort(filter(location_names, type=="country")$location)))
-      )
-    })
-    
+    )
+  })
+  
   
   output$locationP <- renderUI({     
     if(is.null(input$loctyP))return()
@@ -61,11 +82,11 @@ shinyServer(function(input, output, session) {
     if(input$locty=="stregion"||input$locty=="aregion"){
       return(checkboxInput('fixed_scales','Force same scale for y-axis', value=F))
     }
-     return()
+    return()
   })
   
-
-
+  
+  
   output$freesP <- renderUI({
     if(!is.null(input$loctyP)){
       if(input$loctyP=="ctregion"||input$loctyP=="aregionP"){
@@ -75,7 +96,7 @@ shinyServer(function(input, output, session) {
     return()
   })
   
-
+  
   
   
   observe({
@@ -90,7 +111,7 @@ shinyServer(function(input, output, session) {
   # region, or country selected.  For some reason, need to put in extra error check for the "states within region" option to prevent ggplot error message 
   selectedData <- reactive({
     if(input$locty=="aregion") return(filter(cdcdata, display_name == input$disease_name, Reporting.Area %in% location_names$location[which(location_names$type=="region")],
-                                            rdate >= input$years[1], rdate<=input$years[2] ))
+                                             rdate >= input$years[1], rdate<=input$years[2] ))
     
     if(is.null(input$location_name))return()
     if(input$locty=="state"||input$locty=="region"||input$locty=="country") return(filter(cdcdata, display_name == input$disease_name, Reporting.Area == input$location_name, 
@@ -99,9 +120,9 @@ shinyServer(function(input, output, session) {
       if(!(input$location_name %in% location_names$region)){return()}
       return(filter(cdcdata, display_name == input$disease_name, Reporting.Area %in% location_names$location[location_names$region==input$location_name], 
                     rdate >= input$years[1], rdate<=input$years[2] ))}
-   })
+  })
   
-
+  
   selectedDataI <- reactive({
     if(is.null(input$inf_name))return()
     return(filter(infreq, Disease==input$inf_name, date >= input$yearsInf[1], date <= input$yearsInf[2]))
@@ -125,7 +146,7 @@ shinyServer(function(input, output, session) {
                     rdate >= input$yearsPI[1], rdate <= input$yearsPI[2]))}
   })
   
-    
+  
   
   # Plot data - either a single plot for one location, or faceted plots for all locations of a single type
   output$plot1 <- renderPlot({
@@ -135,14 +156,14 @@ shinyServer(function(input, output, session) {
     # Depending on whether the "Cumulative" checkbox is checked, set plot aesthetics to either weekly or cumulative counts
     switch(input$plotty,
            "week"  =  {aesthetics1 = aes(x=rdate, y=c, group=group)
-                       aesthetics2 = aes(x=rdate, y=fourteenwk.thresh, group=group)
-                       xlabel = "Date"},
+           aesthetics2 = aes(x=rdate, y=fourteenwk.thresh, group=group)
+           xlabel = "Date"},
            "weeky"  =  {aesthetics1 = aes(x=MMWR.Week, y=c, group=MMWR.Year, colour=MMWR.Year)
-                        aesthetics2 = aes(x=MMWR.Week, y=fourteenwk.thresh,colour=MMWR.Year)
-                        xlabel = "MMWR Week"} ,
+           aesthetics2 = aes(x=MMWR.Week, y=fourteenwk.thresh,colour=MMWR.Year)
+           xlabel = "MMWR Week"} ,
            "cumuy" =   {aesthetics1 = aes(x=MMWR.Week, y=ycumulate, group=MMWR.Year, colour=MMWR.Year)
-                        aesthetics2 = aes(x=MMWR.Week, y=ycumu14,colour=MMWR.Year)
-                        xlabel = "MMWR Week"}
+           aesthetics2 = aes(x=MMWR.Week, y=ycumu14,colour=MMWR.Year)
+           xlabel = "MMWR Week"}
     )
     
     # Create the main ggplot
@@ -153,7 +174,7 @@ shinyServer(function(input, output, session) {
     #if(input$plotty=="weeky"||input$plotty=="cumuy") p <- p  + scale_x_date(breaks="3 months",limits=c(as.Date("1/1", format="%m/%d"),as.Date("12/31", format="%m/%d")),
     #                                                                                     labels=date_format("%b"))
     
-
+    
     
     # If the alert threshold box was checked, include a line on the plots.  Otherwise, plot with no line.
     if(input$alert_line){
@@ -178,21 +199,21 @@ shinyServer(function(input, output, session) {
     # Depending on whether the "Cumulative" checkbox is checked, set plot aesthetics to either weekly or cumulative counts
     switch(input$plottyI,
            "week"  =  {aesthetics1 = aes(x=date, y=c)
-                       aesthetics2 = aes(x=date, y=threshold)
-                       xlabel = "Date"},
+           aesthetics2 = aes(x=date, y=threshold)
+           xlabel = "Date"},
            "weeky"  =  {aesthetics1 = aes(x=MMWR.week, y=c, group=MMWR.year, colour=MMWR.year)
-                        aesthetics2 = aes(x=MMWR.week, y=threshold,colour=MMWR.year)
-                        xlabel = "MMWR Week"} ,
+           aesthetics2 = aes(x=MMWR.week, y=threshold,colour=MMWR.year)
+           xlabel = "MMWR Week"} ,
            "cumuy" =   {aesthetics1 = aes(x=MMWR.week, y=ycumulate, group=MMWR.year, colour=MMWR.year)
-                        aesthetics2 = aes(x=MMWR.week, y=ycumu14,colour=MMWR.year)
-                        xlabel = "MMWR Week"}
+           aesthetics2 = aes(x=MMWR.week, y=ycumu14,colour=MMWR.year)
+           xlabel = "MMWR Week"}
     )
     
     # Create the main ggplot
     p <- ggplot(selectedDataI(), aesthetics1)+geom_line(stat="identity",position="identity",size=1)+
       ylab("Number Reported")+scale_color_brewer(palette="Set2",name="Weekly case counts")+
       ggtitle(paste("MMWR",input$inf_name, "Reports")) + geom_point() + xlab(xlabel)
-        
+    
     # If the alert threshold box was checked, include a line on the plots.  Otherwise, plot with no line.
     if(input$alert_lineI){
       p <- p+  geom_point(data=subset(selectedDataI(),alert == T),colour='RED')
@@ -205,22 +226,22 @@ shinyServer(function(input, output, session) {
   
   output$plot3 <- renderPlot({
     if(any(is.null(input$loctyP),is.null(selectedDataP()),is.null(input$plottyP),
-         is.null(input$alert_lineP),is.null(input$fixed_scalesP))){
+           is.null(input$alert_lineP),is.null(input$fixed_scalesP))){
       return() 
     }
     scaletype = "fixed"
-
+    
     # Depending on whether the "Cumulative" checkbox is checked, set plot aesthetics to either weekly or cumulative counts
     switch(input$plottyP,
            "week"  =  {aesthetics1 = aes(x=rdate, y=c)
-                       aesthetics2 = aes(x=rdate, y=fourteenwk.thresh)
-                       xlabel = "Date"},
+           aesthetics2 = aes(x=rdate, y=fourteenwk.thresh)
+           xlabel = "Date"},
            "weeky"  =  {aesthetics1 = aes(x=MMWR.Week, y=c, group=MMWR.Year, colour=MMWR.Year)
-                        aesthetics2 = aes(x=MMWR.Week, y=fourteenwk.thresh,colour=MMWR.Year)
-                        xlabel = "MMWR Week"} ,
+           aesthetics2 = aes(x=MMWR.Week, y=fourteenwk.thresh,colour=MMWR.Year)
+           xlabel = "MMWR Week"} ,
            "cumuy" =   {aesthetics1 = aes(x=MMWR.Week, y=ycumulate, group=MMWR.Year, colour=MMWR.Year)
-                        aesthetics2 = aes(x=MMWR.Week, y=ycumu14,colour=MMWR.Year)
-                        xlabel = "MMWR Week"}
+           aesthetics2 = aes(x=MMWR.Week, y=ycumu14,colour=MMWR.Year)
+           xlabel = "MMWR Week"}
     )
     
     # Create the main ggplot
@@ -240,19 +261,13 @@ shinyServer(function(input, output, session) {
     
     if(is.null(input$fixed_scalesP)){return()}
     if(input$fixed_scalesP==F) scaletype="free"
-
-
-
+    
+    
+    
     return(p + facet_wrap(~ Reporting.Area, scales=scaletype))
     
   })
-
+  
 })
 
 
-
-  
-
-##still to do:
-##infreq and p&i mort
-#recode automatic update - create file just for old data, then rescrape new data, reformat, and attach each week.
