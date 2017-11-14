@@ -1,0 +1,68 @@
+---
+title: "data_manipulation"
+author: "Jack"
+date: "11/3/2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+
+library(dplyrXdf)
+library(tidyr)
+library(lubridate)
+
+```
+
+
+## create table mapping pump station, line segment
+
+```{r}
+
+line1 <- rxImport(RxXdfData("Line1_both_scored.xdf"))
+line1_location <- line1[,c(3,4)]
+line1_location <- line1_location%>%distinct()
+
+line1_location0 <- plyr::rename(line1_location,c("pump_station" = "location"))
+line1_location0$location <- as.character(line1_location0$location)
+line1_location0$line_segment <- as.character(line1_location0$line_segment)
+
+line1_location1 <- line1_location%>%gather(type,location)%>%distinct()
+
+line1_location2 <- rxMerge(inData1 = line1_location1,inData2 = line1_location0, matchVars = c("location"),type = "left")
+line1_location2[is.na(line1_location2)] <- "NONE"
+
+line1_location2[33,] <- c("line","1","NONE")
+
+write.table(line1_location2, file="location_names_power.txt", row.names=FALSE, col.names=TRUE)
+
+
+```
+
+## create a commodity list table
+
+```{r}
+
+commodity <- unique(line1$commodity)
+commodity_names <- as.data.frame(commodity,row.names = NULL)
+
+write.table(commodity_names,file = "commodity_names.txt", row.names = FALSE,col.names = TRUE )
+
+```
+
+
+## add timestamp for display at day level, also the line number
+```{r}
+
+line1$date <- date(line1$ts_pi)
+
+line1$line <- factor(c("1"))
+```
+
+
+
+
