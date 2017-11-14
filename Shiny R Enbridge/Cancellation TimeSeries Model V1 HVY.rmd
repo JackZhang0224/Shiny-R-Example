@@ -1,0 +1,128 @@
+---
+title: "1.6 TimeSeries Model V1"
+author: "Jack"
+date: "2/23/2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+library("forecast")
+```
+
+
+## data exploration
+
+```{r}
+
+# Now we will bring 2 years historical since 2015 considering MMA factor, ExKB heavy cancellation
+
+ts_input <- read.csv("ExKB_Historical_Cancellation.csv",header = T,stringsAsFactors = F)
+
+
+
+
+
+n <- nrow(ts_input)
+ts_data <- ts_input$Delta_Batches[1:n]
+
+
+
+ts_data1 <- ts(ts_data, frequency = 12, start = c(2013,1))
+ts_data1
+
+
+plot.ts(ts_data1)
+
+## look at most recent years 2015&2016,  
+
+## we know that SEP, OCT2015 ; ARP, MAY, JUN2016 are outliers. We either remove them or weight them
+
+
+## for 2015, SEP, OCT, i calculate their weigh over total cancellation, 
+#NOS_MONTH	    Delta_Batches	 Weight  New number	
+#1/1/2015 0:00	-4.01	         0.02	
+#2/1/2015 0:00	 6.53	        -0.03	
+#3/1/2015 0:00	-18.41	       0.07	
+#4/1/2015 0:00	 0.29	         0.00	
+#5/1/2015 0:00	-7.42	         0.03	
+#6/1/2015 0:00	 2.14	        -0.01	
+#7/1/2015 0:00	 3.56	        -0.01	
+#8/1/2015 0:00	-32.19	       0.13	
+#9/1/2015 0:00	-68.53	       0.27	   -32.67
+#10/1/2015 0:00	-73.81	       0.29	   -35.20
+#11/1/2015 0:00	-49.25	       0.20	
+#12/1/2015 0:00	-10.56	       0.04	
+
+#total	-251.66		
+#adj_total = average (taking out outlier) *12	 equals -120		
+
+# so adjust 2015 SEP = -32.67, OCT = -35.20
+
+#same methodology applied to 2016 APRIL, MAY and June
+# adjust 2016 APIRL = -9, MAY = -44.35, June = -24.61.
+
+create_Value <- function(dat){
+  dat$adj_delta_batches <- ifelse(dat$NOS_MONTH == "01Sep2015 0:00:00", -32.67,
+                           ifelse(dat$NOS_MONTH == "01Oct2015 0:00:00", -35.20, 
+                           ifelse(dat$NOS_MONTH == "01Apr2016 0:00:00", -9.00, 
+                           ifelse(dat$NOS_MONTH == "01May2016 0:00:00", -44.35, 
+                           ifelse(dat$NOS_MONTH == "01Jun2016 0:00:00", -24.61, 
+                           dat$Delta_Batches)))))
+    return(dat)
+}
+
+ts_input_adj <-create_Value(ts_input)
+
+ts_data_adj <- ts_input_adj$adj_delta_batches[1:n]
+
+############################
+ts_input_adj$NOS_MONTH <- date(as.POSIXct(ts_input_adj$NOS_MONTH,format = "%d%b%Y %H:%M:%S"))
+##this is the data we need to use in shiny R.
+##########################
+
+
+
+
+
+
+
+
+
+
+
+
+ts_data2 <- ts(ts_data_adj, frequency = 12, start = c(2013,1))
+ts_data2
+plot.ts(ts_data2)
+
+# looks like we had lots of cancellation in 2013, we start to consider start with year 2014.
+
+ts_data3 <- ts(ts_data_adj[13:n], frequency = 12, start = c(2014,01))
+ts_data3
+
+plot.ts(ts_data3)
+
+par(mfrow = c(3,1))
+plot.ts(ts_data1)
+plot.ts(ts_data2)
+plot.ts(ts_data3)
+
+```
+
+
+
+```{r}
+#Auto.Arima function,
+
+auto.arima(ts_data3)
+forecast(auto.arima(ts_data3), h=2)
+plot.forecast(forecast(auto.arima(ts_data3),h=2))
+```
+
+
+

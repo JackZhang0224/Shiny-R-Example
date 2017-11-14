@@ -1,0 +1,347 @@
+---
+title: "1.6 TimeSeries Model V1"
+author: "Jack"
+date: "2/23/2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+```{r}
+library("forecast")
+```
+
+
+## data exploration
+
+```{r}
+
+# Now we will bring 2 years historical from 2016 rate loss data
+
+ts_input_sModel <- read.csv("Seasonality_Model_Input.csv",header = T,stringsAsFactors = FALSE)
+
+Seasonal_input1 <- plyr::rename(ts_input_sModel, c("New..Line.4" = "Line4","New..Line.67" = "Line67"))
+
+# we already change outliers for 2015 and 2016 years from our input, we adjusted the following:
+#for Line4:  2015-02: 93.66 -> 96
+#            2016-01: 93.22 -> 96.4
+#            2016-10: 90.35 -> 96
+#for Line67: 2015-07: 88.92 -> 96
+#            2016-01: 91.63 -> 94.8
+#            2016-10: 92.66 -> 96
+            
+# in 2017, we need to change one value for Line 4, 2017-06: 91.68 -> 96.8
+
+
+
+Seasonal_input1$Line4 <- ifelse(Seasonal_input1$Year == 2017 & Seasonal_input1$Month == 6, "96.8%", Seasonal_input1$Line4)
+
+
+Seasonal_input1$Date <- as.Date(paste0(Seasonal_input1$Date,"-","01"),format = "%b-%y-%d")
+
+
+Seasonal_input1$Line4<- as.numeric(substr(Seasonal_input1$Line4,0,nchar(Seasonal_input1$Line4)-1))
+Seasonal_input1$Line67<- as.numeric(substr(Seasonal_input1$Line67,0,nchar(Seasonal_input1$Line67)-1))
+
+
+
+############################## Now this is the data for shiny R##  Seasonal_input1########################
+
+
+
+
+
+# extract only rate loss number for line4 and line 67 respectively.
+line4_rateLoss <- as.numeric(substr(Seasonal_input1$Line4,0,nchar(Seasonal_input1$Line4)-1))
+line67_rateLoss <- as.numeric(substr(Seasonal_input1$Line67,0,nchar(Seasonal_input1$Line67)-1))
+
+# create timeSeries Model data.
+line4_ModelData <- ts(line4_rateLoss, frequency = 12, start = c(2015,1))
+line4_ModelData
+plot.ts(line4_ModelData)
+
+line67_ModelData <- ts(line67_rateLoss, frequency = 12, start = c(2015,1))
+line67_ModelData
+plot.ts(line67_ModelData)
+
+```
+
+#Decomppsing Seasonal Data
+
+#A seasonal time series consists of a trend component, a seasonal component and an irregular component. Decomposing the time series means separating the time series into these three components: that is, estimating these three components.
+
+```{r}
+
+# for Line 4:
+
+tscomponents_L4 <- decompose(line4_ModelData)
+
+
+tscomponents_L4$seasonal
+
+# The largest seasonal factor is for June (about 1.17), and the lowest is for Sep (about -1.96), indicating that there seems to be a peak in June and a trough in Sep every year.
+
+
+
+plot(tscomponents_L4)
+
+
+## there is a strong seasonality from the pattern.
+
+# for Line 67:
+
+tscomponents_L67 <- decompose(line67_ModelData)
+
+
+tscomponents_L67$seasonal
+
+# The largest seasonal factor is for Mar & Apr (about 1.13 & 1.11), and the lowest is for Sep (about -1.97), indicating that there seems to be a peak in June and a trough in Sep every year.
+
+
+
+plot(tscomponents_L67)
+
+
+## there is a strong seasonality from the pattern.
+
+
+
+
+
+
+
+
+
+
+```
+
+
+
+#Model building
+
+#1. Simple Exponentical Smoothing (constant level and no seasonality)
+
+
+
+#We are going to try this model first,even though mean and random fluctuation is in a wide range. We will build forecasts using simple exponential smoothing.
+
+#To make forecasts using simple exponential smoothing in R, we can fit a simple exponential smoothing predictive model using the “HoltWinters()” function in R. To use HoltWinters() for simple exponential smoothing, we need to set the parameters beta=FALSE and gamma=FALSE in the HoltWinters() function (the beta and gamma parameters are used for Holt’s exponential smoothing, or Holt-Winters exponential smoothing, as described below).
+
+```{r}
+
+Tsforecasts_l4 <- HoltWinters(line4_ModelData, beta=FALSE, gamma=FALSE)
+Tsforecasts_l4
+
+## alpha = 0.2486 means it is not based on recently years observation 
+
+Tsforecasts_l4$fitted
+
+plot(Tsforecasts_l4)
+
+##not quite smooth fit on the historical data, as this model not consider seasonality and trend.
+
+Tsforecasts_l4$SSE
+## (38.45) sum squared error is OK...
+
+## forecast future numbers
+
+library("forecast")
+Tsforecasts2_l4 <- forecast.HoltWinters(Tsforecasts_l4, h=2)
+Tsforecasts2_l4
+
+plot.forecast(Tsforecasts2_l4)
+
+## The prediction C.I is OK
+
+
+## (acf: autocovariance or autocorrelation function)
+## If the predictive model cannot be improved upon, there should be no correlations between forecast errors for successive predictions. In other words, if there are correlations between forecast errors for successive predictions, it is likely that the simple exponential smoothing forecasts could be improved upon by another forecasting technique.
+
+acf(Tsforecasts2_l4$residuals[2:33], lag.max=20)
+
+##To test whether there is significant evidence for non-zero correlations at lags 1-20, we can carry out a Ljung-Box test.
+
+Box.test(Tsforecasts2_l4$residuals, lag=20, type="Ljung-Box")
+
+## p- value is 0.1025,which is bigger than 0.05. so there is little evidence for non - zero correlation, means we probably still can improve our model
+## we can confirm our result by checking distribuion of error
+
+
+plot.ts(Tsforecasts2_l4$residuals)
+
+#To check whether the forecast errors are normally distributed with mean zero, we can plot a histogram of the forecast errors, with an overlaid normal curve that has mean zero and the same standard deviation as the distribution of forecast errors. 
+
+plotForecastErrors <- function(forecasterrors)
+  {
+     # make a histogram of the forecast errors:
+     mybinsize <- IQR(forecasterrors)/4
+     mysd   <- sd(forecasterrors)
+     mymin  <- min(forecasterrors) - mysd*5
+     mymax  <- max(forecasterrors) + mysd*3
+     # generate normally distributed data with mean 0 and standard deviation mysd
+     mynorm <- rnorm(10000, mean=0, sd=mysd)
+     mymin2 <- min(mynorm)
+     mymax2 <- max(mynorm)
+     if (mymin2 < mymin) { mymin <- mymin2 }
+     if (mymax2 > mymax) { mymax <- mymax2 }
+     # make a red histogram of the forecast errors, with the normally distributed data overlaid:
+     mybins <- seq(mymin, mymax, mybinsize)
+     hist(forecasterrors, col="red", freq=FALSE, breaks=mybins)
+     # freq=FALSE ensures the area under the histogram = 1
+     # generate normally distributed data with mean 0 and standard deviation mysd
+     myhist <- hist(mynorm, plot=FALSE, breaks=mybins)
+     # plot the normal curve as a blue line on top of the histogram of forecast errors:
+     points(myhist$mids, myhist$density, type="l", col="blue", lwd=2)
+  }
+
+plotForecastErrors(Tsforecasts2_l4$residuals[2:33])
+mean(Tsforecasts2_l4$residuals[2:33])
+## the distribution is center on  .1502, and close to bell curve but with long trails on both sides.
+
+# so the conclusion is that we can still improve model.
+
+```
+
+
+#ARIMA model (Autoregressive Integrated Moving Average)
+
+```{r}
+
+plot.ts(line4_ModelData)
+
+# we need to take difference to make our time series be stationary in mean. 
+
+line4_ModelData_diff <-diff(line4_ModelData, differences = 1)
+
+plot.ts(line4_ModelData_diff)
+
+# we see that the time series is stationary in mean and variance now, so ARIMA (p,d,q), we set d =1
+# now we need to find p and q by using acf anf pcf(partial autocorrelation function)
+
+acf(line4_ModelData_diff,lag.max = 34) 
+acf(line4_ModelData_diff, lag.max=34, plot = FALSE)
+
+
+# We see from the correlogram that the autocorrelation at lag 0 (1.0) exceeds the significance bounds, but all other autocorrelations do not exceed the significance bounds.
+
+# so the candiate model is ARMA(0,1), parameters =1
+
+pacf(line4_ModelData_diff, lag.max=34)           
+pacf(line4_ModelData_diff, lag.max=34, plot=FALSE) 
+
+#We see from the correlogram that the autocorrelation lag4(-0.5) exceeds bound.
+
+# so the candiate model is ARMA(4,0), parameters = 0
+
+#by choosing less parameters, we chose ARMA(0,0),with d =1, we can test model ARIMA (0,1,0) 
+
+```
+
+
+
+# test on ARIMA models
+```{r}
+## test on model ARIMA(0,1,0) (0,1,1) (1,1,0) (3,1,1) (4,1,1), (1,0,0) and Auto.Arima
+
+
+ts_model_arima_l4 <- arima(line4_ModelData, order=c(1,0,0)) 
+
+ts_model_arima_l4
+
+
+ts_arima_forecasts_l4 <- forecast.Arima(ts_model_arima_l4, h=2)
+ts_arima_forecasts_l4
+
+
+plot.forecast(ts_arima_forecasts_l4)
+
+acf(ts_arima_forecasts_l4$residuals, lag.max=20)
+
+
+Box.test(ts_arima_forecasts_l4$residuals, lag=20, type="Ljung-Box")
+
+
+plot.ts(ts_arima_forecasts_l4$residuals)            
+plotForecastErrors(ts_arima_forecasts_l4$residuals)
+mean(ts_arima_forecasts_l4$residuals)
+
+
+#1. Arima (0,1,0)
+#sigma^2 estimated as 1.366:  log likelihood = -50.39,  aic = 102.78
+# erro mean = 0.045, P value = 0.5301 > 0.05, there is more room improve our Arima model(0,1,0)
+#          Point Forecast    Lo 80    Hi 80    Lo 95     Hi 95
+# Oct 2017           97.4 95.90238 98.89762 95.10959  99.69041
+# Nov 2017           97.4 95.28204 99.51796 94.16087 100.63913
+
+
+
+#2. Arima (0,1,1)
+#sigma^2 estimated as 1.209:  log likelihood = -48.6,  aic = 101.19
+# erro mean = 0.083, P value = 0.3121 > 0.05, there is more room improve our Arima model(0,1,1)
+#         Point Forecast    Lo 80    Hi 80    Lo 95    Hi 95
+#Oct 2017        97.2999 95.89059 98.70922 95.14454 99.45526
+#Nov 2017        97.2999 95.72939 98.87041 94.89801 99.70179
+
+
+
+
+#3. Arima (1,1,0)
+#sigma^2 estimated as 1.255:  log likelihood = -49.08,  aic = 102.15
+# erro mean = 0.061, P value = 0.5634 > 0.05, there is more room improve our Arima model(1,1,0)
+#         Point Forecast    Lo 80    Hi 80    Lo 95     Hi 95
+#Oct 2017       97.53870 96.10324 98.97415 95.34336  99.73404
+#Nov 2017       97.50022 95.72922 99.27122 94.79171 100.20874
+
+
+
+
+
+#5. Arima (3,1,1)
+#sigma^2 estimated as 0.9909:  log likelihood = -45.78,  aic = 101.55
+# erro mean = 0.1903, P value = 0.6986 > 0.05, there is room improve our Arima model(3,1,1)
+#        Point Forecast    Lo 80    Hi 80    Lo 95    Hi 95
+#Oct 2017       97.59015 96.31442 98.86589 95.63909 99.54122
+#Nov 2017       97.13431 95.69459 98.57403 94.93245 99.33617
+
+
+
+#6. Arima (4,1,1)
+#sigma^2 estimated as 0.983:  log likelihood = -45.67,  aic = 103.34
+# erro mean = 0.188, P value = 0.739 > 0.05, there is room improve our Arima model(4,1,1)
+#         Point Forecast    Lo 80    Hi 80    Lo 95    Hi 95
+#Oct 2017       97.62422 96.35362 98.89482 95.68100 99.56744
+#Nov 2017       97.28369 95.86131 98.70608 95.10834 99.45904
+
+
+
+#7 Auto.Arima = (1,0,0)
+#sigma^2 estimated as 0.996:  log likelihood = -46.89,  aic = 99.78
+# erro mean = 0.0087, P value = 0.8614 > 0.05, there is more room improve our Arima model(1,0,0)
+#         Point Forecast    Lo 80    Hi 80    Lo 95    Hi 95
+#Oct 2017       96.91968 95.64059 98.19877 94.96348 98.87588
+#Nov 2017       96.69061 95.27350 98.10772 94.52333 98.85789
+
+
+# we will use  auto.arima = arima (1,0,0) based on erro.mean, p_value and aic.
+
+```
+
+```{r}
+#Auto.Arima function,
+
+# for line 4
+auto.arima(line4_ModelData)
+forecast(auto.arima(line4_ModelData), h=2)
+plot.forecast(forecast(auto.arima(line4_ModelData),h=2))
+
+# for line 67
+auto.arima(line67_ModelData)
+forecast(auto.arima(line67_ModelData), h=2)
+plot.forecast(forecast(auto.arima(line67_ModelData),h=2))
+
+
+```
+
+
+

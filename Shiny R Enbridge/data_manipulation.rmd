@@ -1,0 +1,127 @@
+---
+title: "data_manipulation"
+author: "Jack"
+date: "11/3/2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+
+library(dplyrXdf)
+library(tidyr)
+library(lubridate)
+
+```
+
+
+
+
+## first, we create our data set contain all sample lines
+
+
+```{r}
+
+line1 <- rxImport(RxXdfData("Line1_both_scored.xdf"))
+
+Power_sample_lines <- select(line1,c(hhpu_Pred,hhpu,pump_station,line_segment,commodity,flow_rate,ts_pi))
+
+Power_sample_lines <- Power_sample_lines %>% mutate(line = c("1"))
+
+Power_sample_lines$pump_station <- as.character(Power_sample_lines$pump_station)
+Power_sample_lines$line_segment <- as.character(Power_sample_lines$line_segment)
+Power_sample_lines$commodity <- as.character(Power_sample_lines$commodity)
+
+
+rxImport(Power_sample_lines, "Power_sample_lines.xdf")
+
+lines <- c("5","6","9")
+
+for (l in lines){
+
+a0 <- rxImport( RxXdfData(paste0("Line", l, "_both_scored.xdf")),reportProgress = 0)
+a1 <- select(a0, c(hhpu_Pred,hhpu,pump_station,line_segment,commodity,flow_rate,ts_pi))
+
+a1$pump_station <- as.character(a1$pump_station)
+a1$line_segment <- as.character(a1$line_segment)
+a1$commodity <- as.character(a1$commodity)
+a1$line <- as.character(l)
+
+rxImport(a1, outFile = "Power_sample_lines.xdf",append = T,overwrite = T)
+
+}
+
+
+CreateFormat <- function(dat){
+  
+  dat$pump_station <- factor(dat$pump_station)
+  dat$line_segment <- factor(dat$line_segment)
+  dat$commodity <- factor(dat$commodity)
+  dat$line <- factor(dat$line)
+  
+  return(dat)
+}
+
+Power_sample_lines1 <- CreateFormat(rxImport(RxXdfData("Power_sample_lines.xdf")))
+
+line <- Power_sample_lines1
+
+
+```
+
+
+## create table mapping pump station, line segment
+
+```{r}
+
+
+line_location <- line[,c(3,4)]
+line_location <- line_location%>%distinct()
+
+line_location0 <- plyr::rename(line_location,c("pump_station" = "location"))
+line_location0$location <- as.character(line_location0$location)
+line_location0$line_segment <- as.character(line_location0$line_segment)
+
+line_location1 <- line_location%>%gather(type,location)%>%distinct()
+
+line_location2 <- rxMerge(inData1 = line_location1,inData2 = line_location0, matchVars = c("location"),type = "left")
+line_location2[is.na(line_location2)] <- "NONE"
+
+line_location2[c(85,86,87,88),] <- c(rep("line",4),c("1","5","6","9"),rep("NONE",4))
+
+write.table(line_location2, file="location_names_power.txt", row.names=FALSE, col.names=TRUE)
+
+
+```
+
+## create a commodity list table
+
+```{r}
+
+commodity <- unique(line$commodity)
+commodity_names <- as.data.frame(commodity,row.names = NULL)
+commodity_names <- filter(commodity_names,is.na(commodity_names$commodity) ==FALSE)
+
+write.table(commodity_names,file = "commodity_names.txt", row.names = FALSE,col.names = TRUE )
+
+```
+
+
+## add timestamp for display at day level, also the line number
+```{r}
+
+line$date <- date(line$ts_pi)
+
+rxDataStep(line, outFile = "Line_both_scored.xdf",overwrite = T)
+
+```
+
+
+
+
+
+
