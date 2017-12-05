@@ -90,12 +90,6 @@ ts_input_adj$NOS_MONTH <- date(as.POSIXct(ts_input_adj$NOS_MONTH,format = "%d%b%
 
 
 
-
-
-
-
-
-
 ts_data2 <- ts(ts_data_adj, frequency = 12, start = c(2013,1))
 ts_data2
 plot.ts(ts_data2)

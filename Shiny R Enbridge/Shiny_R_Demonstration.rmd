@@ -1,0 +1,51 @@
+---
+title: "Shiny R Demonstration"
+author: "Jack"
+date: "11/14/2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Introduction
+
+What is Shiny?
+* R Package for Interactive Web Apps developed
+by RStudio
+* Gives the power of R in a convenient user
+interface
+* Can be written entirely in R
+
+
+## A Basic Shiny App
+#### A basic app requires:
+* A user interface script
+* A "Server" script
+* Runs using the runApp function
+
+
+## The User Interface Script
+* Defines the components of the user interface
+* Page titles
+* Input options
+* Outputs
+* Defines what the user will see and interact with
+
+
+
+## The Server Script
+* Contains the information to build the app
+* Requires a call to the function shinyServer
+* Contains a function with parrmeter input and output
+* Defines what happens in R
+
+
+## Shiny R Examples
+* [Streaming download rates](https://gallery.shinyapps.io/087-crandash/)
+
+* [Economic Dashboard](https://pmaier1971.shinyapps.io/AutomatedForecastingWithShiny/)
+
+
+## Project Examples

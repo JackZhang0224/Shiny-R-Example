@@ -120,7 +120,13 @@ rxDataStep(line, outFile = "Line_both_scored.xdf",overwrite = T)
 
 ```
 
+## create another reference table
+```{r}
 
+Ref_table_power <- line%>%select(pump_station,line_segment,commodity,line)%>%distinct()
+
+write.table(Ref_table_power,file = "Ref_table_power.txt", row.names = FALSE,col.names = TRUE )
+```
 
 
 

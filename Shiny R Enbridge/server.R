@@ -34,16 +34,25 @@ shinyServer(function(input, output, session) {
   
   
   ### create selection for power
+  
+  
+  
+  
+  
+  
    output$location <- renderUI({     
     if(is.null(input$locty))return()
     switch(input$locty,
-           "pump_station" =     return(selectInput('location_name_power', 'Pump Station Name',sort(filter(location_names_power, type=="pump_station")$location))),
-           "psline_segments" =  return(selectInput('location_name_power', 'Line Segment Name', sort(filter(location_names_power, type=="line_segment")$location))),
-           "line_segment" =  return(selectInput('location_name_power', 'Line Segment Name', sort(filter(location_names_power, type=="line_segment")$location))),
-           "line" =  return(selectInput('location_name_power', 'Line', sort(filter(location_names_power, type=="line")$location)))
+           
+           "pump_station" =     return(selectInput('location_name_power', 'Pump Station Name',sort(filter(Ref_table_power, commodity == input$commodity_name)$pump_station))),
+           "psline_segments" =  return(selectInput('location_name_power', 'Line Segment Name', sort(filter(Ref_table_power, commodity == input$commodity_name)$line_segment))),
+           "line_segment" =  return(selectInput('location_name_power', 'Line Segment Name', sort(filter(Ref_table_power, commodity == input$commodity_name)$line_segment))),
+           "line" =  return(selectInput('location_name_power', 'Line', sort(filter(Ref_table_power, commodity == input$commodity_name)$line)))
   )
   })
   
+   
+   
   
    
    #### data selection for power visulization
@@ -94,7 +103,7 @@ shinyServer(function(input, output, session) {
   # Plot data -  either a single plot for one location, or faceted plots for all locations of a single type  
   output$plot1 <- renderPlot({
     if(is.null(input$locty)||is.null(selectedData()))return()    
-    scaletype = "fixed"
+   
     
     
     # Create the main ggplot
@@ -120,8 +129,7 @@ shinyServer(function(input, output, session) {
   output$plot2 <- renderPlot({
     
   if(is.null(input$loctyP)||is.null(selectedDataI()))return()    
-  scaletype = "fixed"
-    
+ 
     
   if(input$loctyP=="Cancellation"){
       
@@ -170,7 +178,7 @@ shinyServer(function(input, output, session) {
   output$table2 <- renderTable({
     
     if(is.null(input$loctyP)||is.null(selectedDataI()))return()    
-    scaletype = "fixed"
+    
     
     
     if(input$loctyP=="Cancellation"){
@@ -182,6 +190,10 @@ shinyServer(function(input, output, session) {
       ts_server_input <- ts(ts_data_adj,frequency = 12,start = c(2014,01))
       
       t1 <- data.frame(forecast(auto.arima(ts_server_input), h=2))
+      
+      t1$NOS_Month <- rownames(t1)
+      
+      t1 <- t1[,c(6,1:5)]
       
       return(t1) 
     }
@@ -197,6 +209,10 @@ shinyServer(function(input, output, session) {
       
       t2 <- data.frame(forecast(auto.arima(ts_seasonality_input), h=2))
       
+      t2$NOS_Month <- rownames(t2)
+      
+      t2 <- t2[,c(6,1:5)]
+      
       return(t2) 
     }
     
@@ -211,21 +227,226 @@ shinyServer(function(input, output, session) {
       
       t3 <- data.frame(forecast(auto.arima(ts_seasonality_input1), h=2))
       
+      t3$NOS_Month <- rownames(t3)
+      
+      t3 <- t3[,c(6,1:5)]
+      
       return(t3) 
     }
     
     
   }) 
   
-  
 
   
+  output$outputPrint2 <- renderPrint({
+    
+    
+    if(is.null(input$loctyP)||is.null(selectedDataI()))return()    
+   
+    
+    
+    if(input$loctyP=="Cancellation"){
+      
+      n <- nrow(selectedDataI())
+      
+      ts_data_adj <- selectedDataI()$adj_delta_batches[1:n]
+      
+      ts_server_input <- ts(ts_data_adj,frequency = 12,start = c(2014,01))
+      
+      t11 <- summary(auto.arima(ts_server_input))
+      
+      
+      return(t11) 
+    }
+    
+    
+    if(input$loctyP=="Seasonality_L4"){
+      
+      n <- nrow(selectedDataI())
+      
+      ts_seasonality_adj <- selectedDataI()$Line4[1:n]
+      
+      ts_seasonality_input <- ts(ts_seasonality_adj,frequency = 12,start = c(2015,01))
+      
+      t22 <- summary(auto.arima(ts_seasonality_input))
+      
+      return(t22) 
+    }
+    
+    
+    if(input$loctyP=="Seasonality_L67"){
+      
+      n <- nrow(selectedDataI())
+      
+      ts_seasonality_adj1 <- selectedDataI()$Line67[1:n]
+      
+      ts_seasonality_input1 <- ts(ts_seasonality_adj1,frequency = 12,start = c(2015,01))
+      
+      t33 <- summary(auto.arima(ts_seasonality_input1))
+      
+      return(t33) 
+    }
+    
   
+  })
   
   
   
   
 
+  #############################OF portion #################################
+  
+  ### create selection for OF dashboard
+  
+  output$locationH <- renderUI({     
+    if(is.null(input$loctyH))return()
+    switch(input$loctyH,
+           "facility" =     return(selectInput('OF_Ref_table', 'Facility Name',sort(unique(OF_Ref_table$facility)))),
+           "Commodity_Type" =     return(selectInput('OF_Ref_table', 'Commodity Group Name',sort(unique(OF_Ref_table$facility)))),
+           "Comm_ID" =     return(selectInput('OF_Ref_table', 'Commodity Name',sort(unique(OF_Ref_table$facility))))
+           
+           
+    )
+  })
+  
+  
+  
+  output$VariableSelection <- renderUI({
+    if(is.null(input$loctyH))return()
+    
+    if(input$loctyH=="Commodity_Type") return(selectInput("VarialbeSelection","Select a Commodity Group",sort(filter(OF_Ref_table,facility == input$OF_Ref_table)$Commodity_Type)))
+ 
+    if(input$loctyH=="Comm_ID") return(selectInput("VarialbeSelection","Select a Commodity",sort(filter(OF_Ref_table,facility == input$OF_Ref_table)$Comm_ID)))
+
+    
+    
+     })
+  
+  
+  
+ ##### Select OF data for each group###############################
+  
+  
+  selectedDataOF <- reactive({
+    
+    
+    if(input$loctyH=="facility"){
+      
+    OF1 <- OF_ModelData%>%select(facility,Month,Vol)%>%group_by(facility, Month)%>%summarize(Total_Vol = sum(Vol))
+    
+    return(filter(OF1, facility == input$OF_Ref_table, Month<=input$yearsH[2]))
+    }
+    
+    
+    
+    if(input$loctyH=="Commodity_Type"){
+      
+     OF2 <- OF_ModelData%>%select(facility,Month,Commodity_Type,Vol)%>%group_by(facility, Month,Commodity_Type)%>%summarize(Total_Vol = sum(Vol))
+      
+      return(filter(OF2, facility == input$OF_Ref_table, Commodity_Type == input$VarialbeSelection, Month<=input$yearsH[2] ))
+    }
+    
+    
+    
+    if(input$loctyH=="Comm_ID"){
+      
+      OF3 <- OF_ModelData%>%select(facility,Month,Comm_ID,Vol)%>%group_by(facility, Month,Comm_ID)%>%summarize(Total_Vol = sum(Vol))
+      
+      return(filter(OF3, facility == input$OF_Ref_table,Comm_ID == input$VarialbeSelection,Month<=input$yearsH[2] ))
+    }
+    
+    
+    if(input$loctyH=="mainline"){
+      
+      OF4 <- OF_ModelData%>%select(Month,mainline,Vol)%>%group_by(Month,mainline)%>%summarize(Total_Vol = sum(Vol))
+      
+      return(filter(OF4,Month<=input$yearsH[2] ))
+    }
+    
+    
+    
+  })
+    
+    
+    
+  #######################plot for OF by group##################
+  
+  # Plot data 
+  
+  output$plot3 <- renderPlot({
+    
+    if(is.null(input$loctyH)||is.null(selectedDataOF()))return()  
+    
+    if(input$loctyH=="facility"||input$loctyH=="Commodity_Type"||input$loctyH=="Comm_ID"||input$loctyH=="mainline"){
+      
+      n <- nrow(selectedDataOF())
+      
+      ts_OF_data <- selectedDataOF()$Total_Vol[1:n]
+      
+      ts_OF_input <- ts(ts_OF_data,frequency = 12,start = c(2013,01))
+      
+      plot.forecast(forecast(auto.arima(ts_OF_input),h=2))
+    }
+    
+
+    
+  })
+  
+# Create a table   
+  
+  output$table3 <- renderTable({
+    
+    if(is.null(input$loctyH)||is.null(selectedDataOF()))return()    
+    
+    
+    
+    if(input$loctyH=="facility"||input$loctyH=="Commodity_Type"||input$loctyH=="Comm_ID"||input$loctyH=="mainline"){
+      
+      n <- nrow(selectedDataOF())
+      
+      ts_OF_adj <- selectedDataOF()$Total_Vol[1:n]
+      
+      ts_OF_table <- ts(ts_OF_adj,frequency = 12,start = c(2013,01))
+      
+      OF1 <- data.frame(forecast(auto.arima(ts_OF_table), h=2))
+      
+      OF1$NOS_Month <- rownames(OF1)
+      
+      OF1 <- OF1[,c(6,1:5)]
+      
+      return(OF1) 
+    }
+    
+}) 
+  
+  
+  
+  output$outputPrint3 <- renderPrint({
+    
+    
+    if(is.null(input$loctyP)||is.null(selectedDataI()))return()    
+    
+    
+    if(input$loctyH=="facility"||input$loctyH=="Commodity_Type"||input$loctyH=="Comm_ID"||input$loctyH=="mainline"){
+      
+      n <- nrow(selectedDataOF())
+      
+      ts_OF_table <- selectedDataOF()$Total_Vol[1:n]
+      
+      ts_OF_input <- ts(ts_OF_table,frequency = 12,start = c(2013,01))
+      
+      OF11 <- summary(auto.arima(ts_OF_input))
+      
+      
+      return(OF11) 
+    }
+    
+  
+    
+  })
+  
+  
   
 })
 

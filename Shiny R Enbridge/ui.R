@@ -12,14 +12,16 @@
 #load library
 library(shiny)
 library(dplyr)
+library(forecast)
+library(lubridate)
 
 # power data
 
 #read in commodity and location name data
-commodity_names <- read.table("commodity_names.txt", header=T)
+#commodity_names <- read.table("commodity_names.txt", header=T)
 
 #line <- rxImport(RxXdfData("Line_both_scored.xdf"),reportProgress = 0)
-location_names_power <- read.table("location_names_power.txt", header=T,stringsAsFactors = FALSE)
+#location_names_power <- read.table("location_names_power.txt", header=T,stringsAsFactors = FALSE)
 
 
 # cancellation data
@@ -27,7 +29,19 @@ location_names_power <- read.table("location_names_power.txt", header=T,stringsA
 # ts_input_adj
 
 
-shinyUI(navbarPage("2017 Project Visualization",
+# OF model data
+
+# OF_ModelData <- rxImport(RxXdfData("OF_ModelData.xdf"))
+
+# OF_ModelData$mainline <- as.character("mainline")
+
+# OF_Ref_table <- read.csv("OF_Ref_table.csv",header = TRUE,stringsAsFactors = FALSE)
+
+
+###################################################
+
+
+shinyUI(navbarPage("2017 Project Prediction & Visualization",
                    tabPanel("Line Prediction",
                             
                             # Application title
@@ -47,6 +61,7 @@ shinyUI(navbarPage("2017 Project Visualization",
                               
                               uiOutput("location"),
                               
+                             
                               
                               #A line break to make the interface clearer 
                               br(),
@@ -86,8 +101,8 @@ shinyUI(navbarPage("2017 Project Visualization",
   
                               
                               # A drop down menu to choose location.  The menu will be populated based on which location type was chosen.
-                              dateRangeInput('yearsP','Choose date range', start= "2014-01-01", end="2017-11-01", 
-                                             min = "2014-01-01", max="2017-11-01" ),
+                              dateRangeInput('yearsP','Choose date range', start= "2014-01-01", end=Sys.Date(), 
+                                             min = "2014-01-01", max= Sys.Date() ),
                               
                               uiOutput("locationP"),
                               
@@ -112,7 +127,9 @@ shinyUI(navbarPage("2017 Project Visualization",
                             column(8, plotOutput('plot2'),
                                    br(),
                                    # create a output table
-                                   fluidRow( column(4, tableOutput('table2'))))
+                                   fluidRow( column(8, tableOutput('table2'))),
+                                   
+                                   fluidRow( column(8, verbatimTextOutput("outputPrint2"))))
                             
                             
                     
@@ -120,7 +137,66 @@ shinyUI(navbarPage("2017 Project Visualization",
                    ),
                    
                  
-                   
+ #############################################################################                  
+ 
+ tabPanel("Operational Forecast",
+          
+          # Application title
+          titlePanel("Operational Forecast Report"), 
+          
+          #The shiny app is made up of two columns: the first column houses all of the user interface,
+          #including commodity selection, location type.  
+          column(4, wellPanel( 
+            # A drop down menu to choose the commodity name of interest.  
+            # Reads in commodity names from commodity_names.txt.  Can choose which name to default to.  
+            
+        
+            
+            # A row with one column: choose the location type
+            fluidRow(
+              column(8, radioButtons("loctyH", "Choose a level",
+                                     c("Mainline Total" = "mainline",
+                                       "Facility" = "facility",
+                                       "Commodity Group in a Facility"="Commodity_Type",
+                                       "Commodity"="Comm_ID"
+                                       ), selected="mainline")
+              )
+            ),
+            
+            
+            # A drop down menu to choose location.  The menu will be populated based on which location type was chosen.
+            dateRangeInput('yearsH','Choose date range', start= "2013-01-01", end=Sys.Date(), 
+                           min = "2013-01-01", max= Sys.Date() ),
+            
+            uiOutput("locationH"),
+            uiOutput("VariableSelection")
+            
+            
+            
+          )  
+          ),
+          
+          
+          
+          # The second column houses the plot(s) of the data that was selected.  These plots are defined in the server.R file.
+          column(8, plotOutput('plot3'),
+          
+          br(),
+          # create a output table
+          fluidRow( column(8, tableOutput('table3'))),
+          
+          fluidRow( column(8, verbatimTextOutput("outputPrint3"))))
+          
+ ),
+ 
+ 
+ 
+ 
+ 
+ 
+
+ 
+                  
   ###########################################################################                 
                    
                    
